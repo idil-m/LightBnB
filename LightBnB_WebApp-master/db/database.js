@@ -1,5 +1,15 @@
 const properties = require("./json/properties.json");
 const users = require("./json/users.json");
+const { Pool } = require('pg');
+
+const pool = new Pool({
+  user: 'labber',
+  password: 'labber',
+  host: 'localhost',
+  database: 'lightbnb'
+});
+
+pool.query(`SELECT title FROM properties LIMIT 10;`).then(response => {console.log(response)})
 
 /// Users
 
@@ -9,14 +19,20 @@ const users = require("./json/users.json");
  * @return {Promise<{}>} A promise to the user.
  */
 const getUserWithEmail = function (email) {
-  let resolvedUser = null;
-  for (const userId in users) {
-    const user = users[userId];
-    if (user && user.email.toLowerCase() === email.toLowerCase()) {
-      resolvedUser = user;
-    }
-  }
-  return Promise.resolve(resolvedUser);
+  const query = {
+    text: `SELECT * FROM users WHERE email = $1`,
+    values: [email]
+  };
+
+  return pool
+    .query(query)
+    .then((result) => {
+      return result.rows[0] || null;
+    })
+    .catch((err) => {
+      console.error("Error executing query:", err);
+      throw err; 
+    });
 };
 
 /**
@@ -25,7 +41,20 @@ const getUserWithEmail = function (email) {
  * @return {Promise<{}>} A promise to the user.
  */
 const getUserWithId = function (id) {
-  return Promise.resolve(users[id]);
+  const query = {
+    text: `SELECT * FROM users WHERE id = $1`,
+    values: [id]
+  };
+
+  return pool
+    .query(query)
+    .then((result) => {
+      return result.rows[0] || null;
+    })
+    .catch((err) => {
+      console.error("Error executing query:", err);
+      throw err; 
+    });
 };
 
 /**
@@ -34,10 +63,20 @@ const getUserWithId = function (id) {
  * @return {Promise<{}>} A promise to the user.
  */
 const addUser = function (user) {
-  const userId = Object.keys(users).length + 1;
-  user.id = userId;
-  users[userId] = user;
-  return Promise.resolve(user);
+  const query = {
+    text: `INSERT INTO users (name, email, password) VALUES ($1, $2, $3) RETURNING *`,
+    values: [user.name, user.email, user.password]
+  };
+
+  return pool
+    .query(query)
+    .then((result) => {
+      return result.rows[0];
+    })
+    .catch((err) => {
+      console.error("Error executing query:", err);
+      throw err; 
+    });
 };
 
 /// Reservations
@@ -60,13 +99,21 @@ const getAllReservations = function (guest_id, limit = 10) {
  * @return {Promise<[{}]>}  A promise to the properties.
  */
 const getAllProperties = function (options, limit = 10) {
-  const limitedProperties = {};
-  for (let i = 1; i <= limit; i++) {
-    limitedProperties[i] = properties[i];
-  }
-  return Promise.resolve(limitedProperties);
-};
+  const query = {
+    text: `SELECT * FROM properties LIMIT $1`,
+    values: [limit]
+  };
 
+  return pool
+    .query(query)
+    .then((result) => {
+      return result.rows;
+    })
+    .catch((err) => {
+      console.error("Error executing query:", err);
+      throw err; 
+    });
+};
 /**
  * Add a property to the database
  * @param {{}} property An object containing all of the property details.
